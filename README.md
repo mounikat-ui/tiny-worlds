@@ -1,4 +1,31 @@
-# React + TypeScript + Vite
+# Tiny Worlds
+
+A playful browser-based generative art toy. Each world is generated from a deterministic seed, can be saved locally, shared by URL, and exported as a high-resolution PNG.
+
+## Development
+
+```bash
+bun install
+bun run dev
+```
+
+## Build
+
+```bash
+bun run build
+```
+
+## Deployment
+
+The repository is connected to Cloudflare Pages through GitHub. Pushes to `main` deploy automatically.
+
+- Build command: `bun run build`
+- Output directory: `dist`
+- Production site: https://tiny-worlds.pages.dev/
+
+## Architecture
+
+The app keeps the artwork state as `seed + parameters`, generates deterministic shapes in the browser, and renders the same visual logic to both the preview canvas and the PNG export canvas. Saved worlds are stored locally in the browser; no account or backend is required.
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
