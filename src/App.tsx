@@ -31,6 +31,9 @@ function App() {
   const [isExporting, setIsExporting] = useState(false)
   const [copied, setCopied] = useState(false)
   const [savedWorlds, setSavedWorlds] = useState<SavedWorld[]>(readSavedWorlds)
+  const [history, setHistory] = useState<ArtworkState[]>([state])
+  const [historyIndex, setHistoryIndex] = useState(0)
+  const skipHistoryRef = useRef(false)
 
   const draw = useCallback((target: HTMLCanvasElement, renderState: ArtworkState, output?: { width: number; height: number }, time = 0) => {
     const context = target.getContext('2d'); if (!context) return
@@ -73,9 +76,26 @@ function App() {
     return () => { window.cancelAnimationFrame(frame); window.removeEventListener('resize', resize) }
   }, [draw, state])
   useEffect(() => { const params = new URLSearchParams({ seed: String(state.seed), palette: state.palette, worldType: state.worldType, density: String(state.density), drift: String(state.drift), glow: String(state.glow) }); window.history.replaceState(null, '', `${window.location.pathname}#${params}`) }, [state])
+  useEffect(() => {
+    if (skipHistoryRef.current) { skipHistoryRef.current = false; return }
+    setHistory((current) => {
+      const previous = current[current.length - 1]
+      if (previous && JSON.stringify(previous) === JSON.stringify(state)) return current
+      const next = [...current, state].slice(-10)
+      setHistoryIndex(next.length - 1)
+      return next
+    })
+  }, [state])
 
   const update = <K extends keyof ArtworkState>(key: K, value: ArtworkState[K]) => setState((current) => ({ ...current, [key]: value }))
   const reset = () => setState(initialState)
+  const moveHistory = (direction: -1 | 1) => {
+    const nextIndex = historyIndex + direction
+    if (nextIndex < 0 || nextIndex >= history.length) return
+    skipHistoryRef.current = true
+    setHistoryIndex(nextIndex)
+    setState(history[nextIndex])
+  }
   const saveWorld = () => setSavedWorlds((current) => { const next = [{ ...state, name: `World ${state.seed}`, id: `${state.seed}-${Date.now()}` }, ...current.filter((world) => world.seed !== state.seed)].slice(0, 6); localStorage.setItem('tiny-worlds-gallery', JSON.stringify(next)); return next })
   const deleteWorld = (id: string) => setSavedWorlds((current) => { const next = current.filter((world) => world.id !== id); localStorage.setItem('tiny-worlds-gallery', JSON.stringify(next)); return next })
   const renameWorld = (world: SavedWorld) => { const name = window.prompt('Name this world', world.name); if (!name?.trim()) return; setSavedWorlds((current) => { const next = current.map((item) => item.id === world.id ? { ...item, name: name.trim().slice(0, 30) } : item); localStorage.setItem('tiny-worlds-gallery', JSON.stringify(next)); return next }) }
@@ -98,7 +118,9 @@ function App() {
         <div className="control-group"><div className="control-heading"><span>Palette</span><span className="control-value">{palettes[state.palette].name}</span></div><div className="palette-row">{Object.entries(palettes).map(([key, palette]) => <button key={key} className={`palette-button ${state.palette === key ? 'selected' : ''}`} aria-label={`Use ${palette.name}`} aria-pressed={state.palette === key} onClick={() => update('palette', key)}>{palette.colors.map((color) => <span key={color} style={{ backgroundColor: color }} />)}</button>)}</div></div>
         <Slider label="Density" value={state.density} onChange={(value) => update('density', value)} /><Slider label="Drift" value={state.drift} onChange={(value) => update('drift', value)} /><Slider label="Glow" value={state.glow} onChange={(value) => update('glow', value)} />
         <div className="actions"><button className="surprise-button" onClick={() => update('seed', randomSeed())}><span>✦</span> Surprise me</button><button className="export-button" onClick={exportPng}>{isExporting ? 'Preparing…' : 'Export PNG'} <span>↗</span></button></div>
-        <div className="secondary-actions"><button className="share-button" onClick={copyLink}>{copied ? 'Link copied' : 'Copy world link'} <span>⌘</span></button><button className="save-button" onClick={saveWorld}>Save to gallery <span>＋</span></button><button className="reset-button" onClick={reset}>Reset <span>0</span></button></div><p className="seed-note">Seed {state.seed} · same seed, same world</p><p className="shortcut-note">R surprise · S save · E export · 0 reset</p>
+        <div className="secondary-actions"><button className="share-button" onClick={copyLink}>{copied ? 'Link copied' : 'Copy world link'} <span>⌘</span></button><button className="save-button" onClick={saveWorld}>Save to gallery <span>＋</span></button><button className="reset-button" onClick={reset}>Reset <span>0</span></button></div>
+        <div className="history-actions"><button onClick={() => moveHistory(-1)} disabled={historyIndex === 0} aria-label="Go to previous world">← Previous</button><span>{historyIndex + 1} / {history.length}</span><button onClick={() => moveHistory(1)} disabled={historyIndex === history.length - 1} aria-label="Go to next world">Next →</button></div>
+        <p className="seed-note">Seed {state.seed} · same seed, same world</p><p className="shortcut-note">R surprise · S save · E export · 0 reset</p>
       </aside>
     </section><footer><span>tiny worlds / 001</span><span>made for wandering</span></footer>
   </main>
